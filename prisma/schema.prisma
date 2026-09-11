@@ -298,11 +298,22 @@ model Project {
   equipmentNeeds      Json?    @db.JsonB // 設備勾選（麥克風、延長線、投影、白板等），舊資料為 null
   needsPrintedNotice  Boolean  @default(true) // 是否需要列印告示；舊資料預設需要
   status              ProjectStatus  @default(negotiating)
+  referenceNumber     String?        @unique // 官網報價頁產生的預約編號（CP-YYYYMMDD-####），員工用來對應 LINE 訊息
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
   rentals             ProjectRental[]
 
   @@map("project")
+}
+
+// 官網公開報價頁送出紀錄，僅用於防灌水頻率限制
+model WebInquiryAttempt {
+  id        String   @id @default(cuid())
+  ip        String
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+  @@map("web_inquiry_attempt")
 }
 
 // 專案租借項目（一專案多筆）

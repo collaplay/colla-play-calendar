@@ -893,6 +893,7 @@ export async function createProject(
         collaPlayContactId: input.collaPlayContactId,
         internalNotes: input.internalNotes ?? null,
         needsPrintedNotice: input.needsPrintedNotice ?? false,
+        referenceNumber: input.referenceNumber ?? null,
         equipmentNeeds: equipmentNeedsToPrismaInput(
           normalizeEquipmentNeedsForDb(input.equipmentNeeds),
         ),

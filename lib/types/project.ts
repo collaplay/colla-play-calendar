@@ -114,6 +114,8 @@ export interface CreateProjectInput {
   equipmentNeeds?: ProjectEquipmentNeeds | null;
   /** 是否需要列印告示（必填） */
   needsPrintedNotice: boolean;
+  /** 官網報價頁產生的預約編號（CP-YYYYMMDD-####），僅公開報價流程會帶入 */
+  referenceNumber?: string | null;
   rentals: RentalItem[];
 }
 
