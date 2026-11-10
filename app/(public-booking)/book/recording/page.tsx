@@ -108,7 +108,7 @@ export default function BookRecordingPage() {
 
         <div className="mt-6 rounded-xl border border-dashed border-[#D8D3BF] bg-[#F8F7EF] p-4 text-sm text-[#5B6961]">
           <b className="text-[#23302B]">注意事項：</b>
-          本系統僅供初步確認時段、報價，詳細細節與是否預約成功仍須依官方帳號回覆為主。
+          本系統僅供錄音室租借，如須其他場租需求，請洽官方Line
         </div>
 
         <p className="mt-3 text-sm">
@@ -131,7 +131,7 @@ export default function BookRecordingPage() {
           <p className="mt-1 text-sm text-[#5B6961]">
             先選日期查看目前檔期
             {busyAsOf ? `（資料即時同步）` : ""}
-            ，再選起訖時間。已排定時段以外仍請以官方 LINE 確認實際可租借狀況。
+            ，再選起訖時間。
           </p>
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -290,11 +290,9 @@ export default function BookRecordingPage() {
 
         <div className="mt-8 border-t border-[#D8D3BF] pt-6 text-sm">
           <p className="mb-2 text-[#5B6961]">
-            預約時間包含場佈／場撤，
+            超時／未滿30分鐘一律以完整 30 分鐘計費。
             <br />
-            超時／跨時段一律無條件進位為完整 30 分鐘計費。
-            <br />
-            系統假日未涵蓋國定假日，如遇國定假日將人工確認。
+            其他場租需求請洽官方Line
           </p>
           <a
             href="https://line.me/R/ti/p/@collaplay.venue"
