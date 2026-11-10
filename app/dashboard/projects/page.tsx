@@ -10,6 +10,10 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { PROJECTS_PAGE } from "@/lib/message";
 import { getProjectsForWindow } from "@/lib/services/project/project.service";
+import {
+  PROJECT_STATUS_UI_SELECTABLE_VALUES,
+  type ProjectStatusUi,
+} from "@/lib/config/project-status";
 import { getTaipeiTodayYmd } from "@/lib/utils/project-effective-status";
 import {
   buildLoginUrlWithNext,
@@ -54,6 +58,13 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
   const toYmd = formatYmd(endOfMonth(horizonMonthStart));
   const projects = await getProjectsForWindow({ fromYmd, toYmd });
 
+  const statusParam = Array.isArray(sp?.status) ? sp?.status[0] : sp?.status;
+  const initialStatus = (
+    [...PROJECT_STATUS_UI_SELECTABLE_VALUES, "completed"] as ProjectStatusUi[]
+  ).includes(statusParam as ProjectStatusUi)
+    ? (statusParam as ProjectStatusUi)
+    : undefined;
+
   return (
     <DashboardShell>
       <PageHeader
@@ -62,7 +73,7 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
         iconName="FolderKanban"
       />
 
-      <ProjectsContent projects={projects} />
+      <ProjectsContent projects={projects} initialStatus={initialStatus} />
     </DashboardShell>
   );
 }

@@ -15,6 +15,19 @@ export const PROJECTS_LIST_STICKY_COL1_WIDTH_PX = 152;
  */
 export const PROJECTS_LIST_COLUMNS = [
   {
+    id: "referenceNumber",
+    sortable: true,
+    label: PROJECTS_PAGE.columnReferenceNumber,
+    cellClassName: "whitespace-nowrap font-mono text-xs",
+  },
+  {
+    id: "confirm",
+    sortable: false,
+    label: PROJECTS_PAGE.columnConfirm,
+    headerClassName: "whitespace-nowrap",
+    cellClassName: "whitespace-nowrap",
+  },
+  {
     id: "eventType",
     sortable: true,
     label: PROJECTS_PAGE.columnActivityType,

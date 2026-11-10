@@ -3,6 +3,7 @@
 // 所以需要這個頁面接住送出後的結果（成功／失敗原因）。
 import Link from "next/link";
 import SectionContainer from "@/components/layout/section-container";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -32,23 +33,45 @@ export default async function RentalInquiryThanksPage({ searchParams }: PageProp
   const reason = firstValue(sp?.reason);
   const ok = status === "ok" && !!ref;
 
-  const lineText = ok
-    ? `我剛在官網送出場地預約，編號：${ref}，麻煩協助確認訂金與細節。`
-    : "我在官網送出場地預約時遇到問題，麻煩協助處理。";
-  const lineUrl = `https://line.me/R/oaMessage/%40collaplay/?${encodeURIComponent(lineText)}`;
+  const booking = ok
+    ? await prisma.project.findUnique({
+        where: { referenceNumber: ref },
+        select: {
+          customerName: true,
+          customerPhone: true,
+          rentals: {
+            select: { date: true, startTime: true, endTime: true },
+            take: 1,
+          },
+        },
+      })
+    : null;
+  const rental = booking?.rentals[0];
+
+  const lineText = "我在官網送出場地預約時遇到問題，麻煩協助處理。";
+  const lineUrl = `https://line.me/R/oaMessage/%40collaplay.venue/?${encodeURIComponent(lineText)}`;
 
   return (
     <SectionContainer>
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
         {ok ? (
           <>
-            <p className="text-sm font-medium text-muted-foreground">預約已收到</p>
-            <h1 className="mt-2 text-2xl font-semibold">您的預約編號</h1>
-            <p className="mt-3 rounded-lg bg-muted px-4 py-2 font-mono text-lg tracking-wide">
-              {ref}
-            </p>
+            <h1 className="text-2xl font-semibold">預約成功！</h1>
+            <p className="mt-4 text-sm font-medium text-muted-foreground">您的預約資料</p>
+            <div className="mt-2 space-y-1 text-left text-sm">
+              <p>姓名：{booking?.customerName}</p>
+              <p>電話：{booking?.customerPhone}</p>
+              <p>
+                預約時段：
+                {rental ? `${rental.date} ${rental.startTime}–${rental.endTime}` : "—"}
+              </p>
+            </div>
             <p className="mt-4 text-sm text-muted-foreground">
-              目前狀態為「洽談中」，請點下方按鈕把編號傳給官方 LINE，我們會協助確認訂金與細節。
+              請當日準時抵達，於3F咖啡廳櫃台告知預約資料，
+              <br />
+              無須支付訂金，請直接於當日支付全額款項，
+              <br />
+              感謝您：）！
             </p>
           </>
         ) : (
@@ -58,16 +81,16 @@ export default async function RentalInquiryThanksPage({ searchParams }: PageProp
             <p className="mt-4 text-sm text-muted-foreground">
               {ERROR_MESSAGES[reason ?? ""] ?? ERROR_MESSAGES.server_error}
             </p>
+            <a
+              href={lineUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-block rounded-full bg-[#06C755] px-6 py-3 font-semibold text-white"
+            >
+              聯絡官方 LINE
+            </a>
           </>
         )}
-        <a
-          href={lineUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-6 inline-block rounded-full bg-[#06C755] px-6 py-3 font-semibold text-white"
-        >
-          {ok ? "傳送編號給官方 LINE" : "聯絡官方 LINE"}
-        </a>
         <div className="mt-6 text-sm">
           <Link href="/" className="text-muted-foreground underline underline-offset-4">
             回到首頁

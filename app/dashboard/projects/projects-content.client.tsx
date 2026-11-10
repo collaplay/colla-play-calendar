@@ -100,17 +100,21 @@ function filterProjectsFuzzy(projects: Project[], query: string): Project[] {
   if (!q) return projects;
   return projects.filter((p) => {
     const fields = [
+      p.referenceNumber,
       p.customer,
       p.eventOrVenueUse,
       p.space,
       p.contactPerson,
-    ].filter(Boolean);
+    ].filter((field): field is string => Boolean(field));
     return fields.some((field) => fuzzyMatch(field, q));
   });
 }
 
 interface ProjectsContentProps {
   projects: Project[];
+  /** 由網址帶入的預設狀態篩選（例如 ?status=negotiating 直接開「待處理」清單）；
+   *  只在本次瀏覽尚未套用過任何狀態篩選時生效，不會覆蓋使用者已選的篩選快取。 */
+  initialStatus?: ProjectStatusUi;
 }
 
 // 模組層級快取：讓篩選條件在站內跳轉（點進專案再返回）後保留，
@@ -203,7 +207,7 @@ function projectMatchesSelectedActivityTypes(
   return false;
 }
 
-export function ProjectsContent({ projects }: ProjectsContentProps) {
+export function ProjectsContent({ projects, initialStatus }: ProjectsContentProps) {
   const todayYmd = React.useMemo(() => getTaipeiTodayYmd(), []);
 
   const [loadedProjectsById, setLoadedProjectsById] = React.useState<
@@ -373,7 +377,11 @@ export function ProjectsContent({ projects }: ProjectsContentProps) {
   );
   const [selectedStatusValues, setSelectedStatusValues] = React.useState<
     Set<ProjectStatusUi>
-  >(() => new Set(filterCache.statusValues));
+  >(() =>
+    filterCache.statusValues.size > 0 || !initialStatus
+      ? new Set(filterCache.statusValues)
+      : new Set([initialStatus]),
+  );
   const [selectedContactPeople, setSelectedContactPeople] = React.useState<
     Set<string>
   >(() => new Set(filterCache.contactPeople));

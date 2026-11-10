@@ -20,6 +20,8 @@ export type ProjectEquipmentNeeds = {
 
 export interface Project {
   id: string;
+  /** 官網報價頁產生的預約編號（CP-YYYYMMDD-####），內部建立的專案為 null */
+  referenceNumber: string | null;
   /** 對應 DB customerName（客戶姓名） */
   customer: string;
   /** 活動名稱（歷史欄位名沿用） */
@@ -116,6 +118,8 @@ export interface CreateProjectInput {
   needsPrintedNotice: boolean;
   /** 官網報價頁產生的預約編號（CP-YYYYMMDD-####），僅公開報價流程會帶入 */
   referenceNumber?: string | null;
+  /** 未傳則依付款金額自動判斷（洽談中／已確定）；公開報價流程的免審核場域會明確傳入 confirmed */
+  status?: ProjectStatus;
   rentals: RentalItem[];
 }
 

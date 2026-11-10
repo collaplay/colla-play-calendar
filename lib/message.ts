@@ -76,6 +76,7 @@ export const DASHBOARD_LABELS = {
 export const DASHBOARD_NEW_LABELS = {
   overview: "總覽",
   spaces: "場域列表",
+  pendingProjects: "待處理專案",
   projects: "專案管理",
   users: "成員管理",
   reports: "報表下載",
@@ -198,6 +199,7 @@ export const PROJECTS_PAGE = {
   searchAriaLabel: "搜尋專案",
   searchNoResults: "搜尋無結果",
   tableCaption: "專案列表",
+  columnReferenceNumber: "預約編號",
   columnActivityType: "活動類型",
   columnCustomer: "客戶",
   columnEventOrVenueUse: "活動名稱",
@@ -255,6 +257,13 @@ export const PROJECTS_PAGE = {
   statusFilterAria: "{label}篩選（{selectedSummary}）",
   statusSelectAria: "選取狀態：{label}",
   statusUpdateAria: "更新狀態：{name}",
+  columnConfirm: "確認",
+  confirmSelectPlaceholder: "請選擇",
+  confirmSelectAria: "確認或取消：{name}",
+  confirmOptionApprove: "已確認",
+  confirmOptionCancel: "已取消",
+  cancelDeleteConfirmTitle: "確定刪除嗎？",
+  cancelDeleteConfirmDescription: "取消這筆待處理專案後會直接從系統中刪除，無法復原。",
 } as const;
 
 /** 餐飲金額尚未確定：列表／詳情／CSV 顯示與表單勾選（單一來源） */
@@ -388,6 +397,7 @@ export const PROJECT_DETAIL_PAGE = {
   labelEquipmentNoOtherNeeds: "無其他設備需求",
   labelEquipmentSummary: "設備勾選",
 
+  labelReferenceNumber: "預約編號",
   labelCustomerName: "客戶名稱",
   labelPhone: "聯絡電話",
   labelCompany: "公司行號",

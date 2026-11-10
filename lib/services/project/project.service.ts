@@ -36,6 +36,7 @@ import {
   getEffectiveProjectStatus,
   getTaipeiTodayYmd,
 } from "@/lib/utils/project-effective-status";
+import { isPendingWebInquiryForSpace } from "@/lib/utils/project";
 
 const PROJECT_DETAIL_CACHE_TTL_SECONDS = 60;
 
@@ -241,6 +242,7 @@ function equipmentNeedsToPrismaInput(
 function mapRowToProject(
   row: {
     id: string;
+    referenceNumber: string | null;
     customerName: string;
     eventOrVenueUse: string;
     eventType: string;
@@ -299,6 +301,7 @@ function mapRowToProject(
   );
   return {
     id: row.id,
+    referenceNumber: row.referenceNumber,
     customer: row.customerName,
     eventOrVenueUse: row.eventOrVenueUse,
     eventType: row.eventType,
@@ -602,6 +605,7 @@ export async function getCachedProjectById(
         where: { id },
         select: {
           id: true,
+          referenceNumber: true,
           customerName: true,
           customerPhone: true,
           company: true,
@@ -670,7 +674,9 @@ async function getProjectsBySpaceIdImpl(spaceId: string): Promise<Project[]> {
     getAdminContactOptions(),
   ]);
   const adminNameById = new Map(adminOptions.map((o) => [o.id, o.name]));
-  return rows.map((row) => mapRowToProject(row, adminNameById));
+  return rows
+    .filter((row) => !isPendingWebInquiryForSpace(row, spaceId))
+    .map((row) => mapRowToProject(row, adminNameById));
 }
 
 export const getProjectsBySpaceId = cache(getProjectsBySpaceIdImpl);
@@ -897,7 +903,7 @@ export async function createProject(
         equipmentNeeds: equipmentNeedsToPrismaInput(
           normalizeEquipmentNeedsForDb(input.equipmentNeeds),
         ),
-        status: hasPaidAmount ? "confirmed" : "negotiating",
+        status: input.status ?? (hasPaidAmount ? "confirmed" : "negotiating"),
       },
     });
 

@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ALL_SPACES, SPACE_BORDER_COLORS } from "@/lib/config/config";
 import { SPACES_PAGE } from "@/lib/message";
 import type { Project } from "@/lib/types/project";
+import { isPendingWebInquiryForSpace } from "@/lib/utils/project";
 import { SpaceProjectsCalendar } from "./space-projects-calendar.client";
 import { LayoutGrid } from "lucide-react";
 import { addMonths, endOfMonth, startOfDay, startOfMonth } from "date-fns";
@@ -27,9 +28,19 @@ function filterProjectsBySpace(
   projects: Project[],
   spaceId: string | null,
 ): Project[] {
-  if (spaceId == null || spaceId === FILTER_ALL) return projects;
-  return projects.filter((p) =>
-    p.rentals?.some((r) => r.spaceIds.includes(spaceId)),
+  if (spaceId == null || spaceId === FILTER_ALL) {
+    // 全部場域合併檢視：任一場域仍待確認就先不顯示，避免看起來已經佔用場地
+    return projects.filter(
+      (p) =>
+        !p.rentals?.some((r) =>
+          r.spaceIds.some((sid) => isPendingWebInquiryForSpace(p, sid)),
+        ),
+    );
+  }
+  return projects.filter(
+    (p) =>
+      p.rentals?.some((r) => r.spaceIds.includes(spaceId)) &&
+      !isPendingWebInquiryForSpace(p, spaceId),
   );
 }
 

@@ -2133,6 +2133,14 @@ export function ProjectDetailContent({
             </h2>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            {project.referenceNumber ? (
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {PROJECT_DETAIL_PAGE.labelReferenceNumber}
+                </p>
+                <p className="font-mono font-medium">{project.referenceNumber}</p>
+              </div>
+            ) : null}
             <div>
               <p className="text-sm text-muted-foreground">
                 {PROJECT_DETAIL_PAGE.labelCustomerName}

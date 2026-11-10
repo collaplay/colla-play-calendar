@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   Building2,
   FolderKanban,
+  ListTodo,
   Users,
 } from "lucide-react";
 import { DASHBOARD_NEW_LABELS } from "../message";
@@ -25,6 +26,11 @@ export const dashboardNavigation: DashboardNavItem[] = [
     href: "/dashboard/spaces",
     label: DASHBOARD_NEW_LABELS.spaces,
     icon: Building2,
+  },
+  {
+    href: "/dashboard/projects?status=negotiating",
+    label: DASHBOARD_NEW_LABELS.pendingProjects,
+    icon: ListTodo,
   },
   {
     href: "/dashboard/projects",

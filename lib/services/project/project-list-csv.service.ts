@@ -99,6 +99,8 @@ function formatProjectCellPlain(
   const statusForUi = normalizeProjectStatusForUi(eff);
 
   switch (columnId) {
+    case "referenceNumber":
+      return project.referenceNumber ?? "—";
     case "eventType":
       return project.eventType?.trim() ? project.eventType : "—";
     case "eventOrVenueUse":
@@ -154,6 +156,7 @@ function formatProjectCellPlain(
     case "needsPrintedNotice":
       return project.needsPrintedNotice ? "是" : "否";
     case "actions":
+    case "confirm":
       return "";
     default: {
       const _exhaustive: never = columnId;
@@ -163,8 +166,11 @@ function formatProjectCellPlain(
 }
 
 const LIST_COLUMN_IDS = PROJECTS_LIST_COLUMNS.filter(
-  (c) => c.id !== "actions",
-) as Exclude<typeof PROJECTS_LIST_COLUMNS[number], { id: "actions" }>[];
+  (c) => c.id !== "actions" && c.id !== "confirm",
+) as Exclude<
+  typeof PROJECTS_LIST_COLUMNS[number],
+  { id: "actions" | "confirm" }
+>[];
 
 /**
  * 產生與列表欄位一致（不含操作欄）的 CSV 字串，含 UTF-8 BOM。

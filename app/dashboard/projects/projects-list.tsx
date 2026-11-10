@@ -366,6 +366,7 @@ function makeProjectListSortValueGetters(): {
   [K in ProjectsListSortKey]: (project: Project) => string | number | null;
 } {
   return {
+  referenceNumber: (p) => p.referenceNumber ?? "",
   eventType: (p) => p.eventType ?? "",
   customer: (p) => p.customer ?? "",
   eventOrVenueUse: (p) => p.eventOrVenueUse ?? "",
@@ -619,6 +620,11 @@ type ActionsCellContext = {
   statusErrorById: Readonly<Record<string, string | undefined>>;
   statusOverrideById: Readonly<Record<string, ProjectStatus | undefined>>;
   onUpdateProjectStatus: (project: Project, next: ProjectStatus) => void;
+  confirmingId: string | null;
+  onConfirmAndLeave: (project: Project) => void;
+  cancelConfirmId: string | null;
+  onRequestCancelDelete: (projectId: string) => void;
+  onCancelDeleteOpenChange: (open: boolean) => void;
 };
 
 function renderProjectsListCell(
@@ -628,6 +634,8 @@ function renderProjectsListCell(
   actionsCtx: ActionsCellContext,
 ): React.ReactNode {
   switch (columnId) {
+    case "referenceNumber":
+      return project.referenceNumber ?? COMMON_PLACEHOLDERS.dash;
     case "eventType":
       return project.eventType?.trim() ? project.eventType : COMMON_PLACEHOLDERS.dash;
     case "eventOrVenueUse":
@@ -684,6 +692,82 @@ function renderProjectsListCell(
       return project.contactPerson;
     case "amount":
       return CURRENCY_FORMATTER_INTEGER.format(project.amount);
+    case "confirm": {
+      const eff = getEffectiveProjectStatus(project, todayYmd);
+      if (eff !== "negotiating") return null;
+      const isUpdating = actionsCtx.statusUpdatingId === project.id;
+      const isConfirming = actionsCtx.confirmingId === project.id;
+      const isDeleting = actionsCtx.deletingId === project.id;
+      const dialogOpen = actionsCtx.cancelConfirmId === project.id;
+      return (
+        <>
+          <Select
+            value=""
+            disabled={isUpdating || isConfirming || isDeleting}
+            onValueChange={(next) => {
+              if (next === "confirmed") {
+                actionsCtx.onConfirmAndLeave(project);
+              } else if (next === "cancelled") {
+                actionsCtx.onRequestCancelDelete(project.id);
+              }
+            }}
+          >
+            <SelectTrigger
+              size="sm"
+              className="h-8 w-full justify-start"
+              aria-label={formatTemplate(PROJECTS_PAGE.confirmSelectAria, {
+                name: project.eventOrVenueUse,
+              })}
+            >
+              <SelectValue placeholder={PROJECTS_PAGE.confirmSelectPlaceholder} />
+            </SelectTrigger>
+            <SelectContent align="start">
+              <SelectItem value="confirmed">
+                {PROJECTS_PAGE.confirmOptionApprove}
+              </SelectItem>
+              <SelectItem value="cancelled">
+                {PROJECTS_PAGE.confirmOptionCancel}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <AlertDialog
+            open={dialogOpen}
+            onOpenChange={(open) => {
+              if (!open) actionsCtx.onCancelDeleteOpenChange(false);
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {PROJECTS_PAGE.cancelDeleteConfirmTitle}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {PROJECTS_PAGE.cancelDeleteConfirmDescription}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              {actionsCtx.deleteError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {actionsCtx.deleteError}
+                </p>
+              ) : null}
+              <AlertDialogFooter>
+                <AlertDialogCancel>
+                  {PROJECT_DETAIL_PAGE.deleteConfirmCancel}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => actionsCtx.onDeleteConfirm(project.id)}
+                  disabled={isDeleting}
+                >
+                  {isDeleting
+                    ? PROJECT_DETAIL_PAGE.deleteConfirmDeleting
+                    : PROJECT_DETAIL_PAGE.deleteConfirmConfirm}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      );
+    }
     case "status": {
       const effBase = getEffectiveProjectStatus(project, todayYmd);
       if (effBase === "completed") {
@@ -963,6 +1047,8 @@ export function ProjectsList({ projects }: ProjectsListProps) {
   const [statusOverrideById, setStatusOverrideById] = useState<
     Record<string, ProjectStatus | undefined>
   >({});
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
   const [selectedStatusValues, setSelectedStatusValues] = useState<
     Set<ProjectStatusUi>
   >(() => new Set());
@@ -1110,7 +1196,10 @@ export function ProjectsList({ projects }: ProjectsListProps) {
       if (!result.success) {
         setDeleteError(result.error);
         setDeletingId(null);
+        return;
       }
+      setCancelConfirmId((prev) => (prev === projectId ? null : prev));
+      router.refresh();
     });
   }
 
@@ -1172,6 +1261,28 @@ export function ProjectsList({ projects }: ProjectsListProps) {
     [router, startTransition],
   );
 
+  const handleConfirmAndLeave = useCallback(
+    (project: Project) => {
+      const projectId = project.id;
+      setConfirmingId(projectId);
+      setStatusErrorById((prev) => ({ ...prev, [projectId]: undefined }));
+
+      startTransition(async () => {
+        const result = await updateProjectStatus(projectId, "confirmed");
+        if (!result.success) {
+          setConfirmingId(null);
+          setStatusErrorById((prev) => ({
+            ...prev,
+            [projectId]: result.error || COMMON_ERRORS.updateFailed,
+          }));
+          return;
+        }
+        router.push("/dashboard/projects");
+      });
+    },
+    [router, startTransition],
+  );
+
   const actionsCellCtx = useMemo<ActionsCellContext>(
     () => ({
       downloadingId,
@@ -1186,6 +1297,19 @@ export function ProjectsList({ projects }: ProjectsListProps) {
       statusErrorById,
       statusOverrideById,
       onUpdateProjectStatus: handleUpdateProjectStatus,
+      confirmingId,
+      onConfirmAndLeave: handleConfirmAndLeave,
+      cancelConfirmId,
+      onRequestCancelDelete: (projectId) => {
+        setDeleteError(null);
+        setCancelConfirmId(projectId);
+      },
+      onCancelDeleteOpenChange: (open) => {
+        if (!open) {
+          setCancelConfirmId(null);
+          setDeleteError(null);
+        }
+      },
     }),
     [
       downloadingId,
@@ -1196,6 +1320,9 @@ export function ProjectsList({ projects }: ProjectsListProps) {
       statusErrorById,
       statusOverrideById,
       statusUpdatingId,
+      confirmingId,
+      handleConfirmAndLeave,
+      cancelConfirmId,
     ],
   );
 

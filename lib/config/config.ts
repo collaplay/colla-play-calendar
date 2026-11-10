@@ -137,6 +137,15 @@ export const ALL_SPACES: Space[] = [
   spaceFromSlug("3F", "focus-area"),
 ];
 
+/**
+ * 免審核場域：播映室、錄音室。官網報價頁送出後直接算進場域行事曆，
+ * 不需要像其他場域一樣先卡在「待處理專案」等人工確認。
+ */
+export const SELF_SERVE_SPACE_IDS: readonly string[] = [
+  "4f-podcast-studio",
+  "4f-screening-room",
+];
+
 export const SPACE_BORDER_COLORS: Record<string, string> = {
   "3f-community-cafe": "border-white",
   "3f-focus-area": "border-white",

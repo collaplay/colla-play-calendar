@@ -1,8 +1,23 @@
 import type { Project } from "@/lib/types/project";
+import { SELF_SERVE_SPACE_IDS } from "@/lib/config/config";
 import {
   effectiveEndDate,
   expandRentalDateKeys,
 } from "@/lib/utils/project-rental-interval";
+
+/**
+ * 官網報價頁送出、尚未經人工確認的專案，是否要在某場域的行事曆／場域列表上隱藏。
+ * 規則：referenceNumber 有值（＝來自報價頁，後台手動建立的專案不會有）
+ * 且狀態仍是洽談中；播映室／錄音室（SELF_SERVE_SPACE_IDS）不受此限，送出後直接算數。
+ * 後台自己手動建立的「洽談中」專案一律照常顯示，不受這條規則影響。
+ */
+export function isPendingWebInquiryForSpace(
+  project: Pick<Project, "referenceNumber" | "status">,
+  spaceId: string,
+): boolean {
+  if (SELF_SERVE_SPACE_IDS.includes(spaceId)) return false;
+  return project.referenceNumber != null && project.status === "negotiating";
+}
 
 /**
  * 取得專案涉及的日期摘要（以 rentals 展開的曆日去重）。

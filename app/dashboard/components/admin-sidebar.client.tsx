@@ -4,7 +4,7 @@
 // 現代化管理後台側邊欄 - 動畫導航與活動狀態
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import {
   Sidebar,
@@ -24,6 +24,9 @@ import { STORE_MESSAGES } from "@/lib/message";
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentSearch = searchParams.toString();
+  const currentHref = pathname + (currentSearch ? `?${currentSearch}` : "");
   const { state } = useSidebar();
 
   return (
@@ -54,11 +57,19 @@ export function AdminSidebar() {
       <SidebarContent className="px-2 py-4">
         <SidebarMenu className="gap-2">
           {dashboardNavigation.map((item) => {
+            const hasQuery = item.href.includes("?");
+            // 帶查詢字串的項目（例如「待處理專案」的 ?status=negotiating）要求完整網址相符，
+            // 避免跟不帶查詢字串的「專案管理」同時亮起。
+            const exactQueryMatchExists = dashboardNavigation.some(
+              (other) => other.href.includes("?") && currentHref === other.href,
+            );
             // Root path /dashboard must match exactly so sub-routes don't highlight 總覽
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/dashboard" &&
-                pathname.startsWith(item.href + "/"));
+            const isActive = hasQuery
+              ? currentHref === item.href
+              : !exactQueryMatchExists &&
+                (pathname === item.href ||
+                  (item.href !== "/dashboard" &&
+                    pathname.startsWith(item.href + "/")));
 
             return (
               <SidebarMenuItem key={item.href}>

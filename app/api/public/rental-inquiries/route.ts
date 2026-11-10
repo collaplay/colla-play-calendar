@@ -17,6 +17,7 @@ import {
   ProjectRentalConflictError,
 } from "@/lib/services/project/project.service";
 import { isValidRentalTimeWindow } from "@/lib/utils/project-rental-interval";
+import { SELF_SERVE_SPACE_IDS } from "@/lib/config/config";
 import type { CreateProjectInput } from "@/lib/types/project";
 
 const REFERENCE_NUMBER_PATTERN = /^CP-\d{8}-\d{4}$/;
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
 
   const referenceNumber = String(form.get("referenceNumber") ?? "").trim();
   if (!REFERENCE_NUMBER_PATTERN.test(referenceNumber)) {
+    console.error("[rental-inquiries][DEBUG] bad referenceNumber:", JSON.stringify(referenceNumber));
     return redirectToThanks(request, { status: "error", reason: "bad_request" });
   }
 
@@ -87,11 +89,16 @@ export async function POST(request: NextRequest) {
   const startTime = String(form.get("startTime") ?? "").trim();
   const endTime = String(form.get("endTime") ?? "").trim();
   const quoteSummary = String(form.get("quoteSummary") ?? "").trim();
+  const openToPublic = String(form.get("openToPublic") ?? "").trim();
+  const openToPublicLink = String(form.get("openToPublicLink") ?? "").trim();
+  const customerNote = String(form.get("customerNote") ?? "").trim();
 
   if (!customerName || !customerPhone || !eventOrVenueUse) {
+    console.error("[rental-inquiries][DEBUG] missing required field:", JSON.stringify({ customerName, customerPhone, eventOrVenueUse }));
     return redirectToThanks(request, { status: "error", reason: "bad_request" });
   }
   if (!/^[\d\s\-]+$/.test(customerPhone)) {
+    console.error("[rental-inquiries][DEBUG] bad customerPhone format:", JSON.stringify(customerPhone));
     return redirectToThanks(request, { status: "error", reason: "bad_request" });
   }
 
@@ -100,11 +107,13 @@ export async function POST(request: NextRequest) {
     .map((s) => s.trim())
     .filter(Boolean);
   if (spaceIds.length < 1) {
+    console.error("[rental-inquiries][DEBUG] no spaceIds from raw:", JSON.stringify(spaceIdsRaw));
     return redirectToThanks(request, { status: "error", reason: "bad_request" });
   }
 
   const endDate = endDateRaw || null;
   if (!date || !isValidRentalTimeWindow({ date, endDate, startTime, endTime })) {
+    console.error("[rental-inquiries][DEBUG] bad time window:", JSON.stringify({ date, endDate, startTime, endTime }));
     return redirectToThanks(request, { status: "error", reason: "bad_request" });
   }
 
@@ -132,6 +141,22 @@ export async function POST(request: NextRequest) {
     noteLines.push(`客戶端試算金額（僅供參考，未經人工確認，勿直接採用）：${quoteSummary}`);
   }
 
+  // 開放參加網址／客戶備註：官網報價頁填的內容，後台看得到的地方是「內部備註」，不是 projectNotes
+  const internalNoteLines: string[] = [];
+  if (openToPublic) {
+    const linkPart =
+      openToPublic === "是" && openToPublicLink
+        ? `（報名網址：${openToPublicLink}）`
+        : "";
+    internalNoteLines.push(`活動是否開放 CollaPlay 客人參加：${openToPublic}${linkPart}`);
+  }
+  if (customerNote) {
+    internalNoteLines.push(`客戶備註：${customerNote}`);
+  }
+
+  // 播映室／錄音室無須人工審核：送出後直接算確定，不卡在待處理專案
+  const isSelfServeSpace = spaceIds.every((id) => SELF_SERVE_SPACE_IDS.includes(id));
+
   const input: CreateProjectInput = {
     customerName,
     customerPhone,
@@ -139,8 +164,10 @@ export async function POST(request: NextRequest) {
     eventType,
     collaPlayContactId,
     projectNotes: noteLines.join("\n"),
+    internalNotes: internalNoteLines.length ? internalNoteLines.join("\n") : undefined,
     needsPrintedNotice: true,
     referenceNumber,
+    status: isSelfServeSpace ? "confirmed" : undefined,
     rentals: [
       {
         spaceIds,
