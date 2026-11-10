@@ -10,6 +10,57 @@ import { useEffect, useMemo, useState } from "react";
 const SPACE_ID = "4f-podcast-studio";
 const OPEN_HOUR = 10;
 const CLOSE_HOUR = 22;
+// liuchiawei 提供的正式系統唯讀檔期 API（含場佈／場撤緩衝時間），不需要帳密
+const REAL_AVAILABILITY_ENDPOINT =
+  "https://colla-play-calendar.vercel.app/api/public/recording-availability";
+const REAL_AVAILABILITY_QUERY_DAYS = 90;
+
+type RealBooking = {
+  date: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  setupMinutesBefore: number;
+  teardownMinutesAfter: number;
+};
+
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** 日期+時間 → 以「日序 × 1440 + 當天分鐘數」表示的絕對分鐘數，方便跨日運算 */
+function toAbsoluteMinutes(dateStr: string, timeStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [hh, mm] = timeStr.split(":").map(Number);
+  const dayIndex = Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+  return dayIndex * 1440 + hh * 60 + mm;
+}
+
+/** 絕對分鐘數 → 所屬日期字串 + 當天分鐘數 */
+function fromAbsoluteMinutes(abs: number): { date: string; minuteOfDay: number } {
+  const dayIndex = Math.floor(abs / 1440);
+  const minuteOfDay = abs - dayIndex * 1440;
+  const dt = new Date(dayIndex * 86400000);
+  return {
+    date: `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`,
+    minuteOfDay,
+  };
+}
+
+/** 把一筆（含場佈／場撤緩衝、可能跨日的）預約，展開成逐日的忙碌分鐘區間 */
+function expandRealBooking(b: RealBooking): Array<{ date: string; start: number; end: number }> {
+  let startAbs = toAbsoluteMinutes(b.date, b.startTime) - (b.setupMinutesBefore || 0);
+  const endAbs = toAbsoluteMinutes(b.endDate, b.endTime) + (b.teardownMinutesAfter || 0);
+  const segments: Array<{ date: string; start: number; end: number }> = [];
+  while (startAbs < endAbs) {
+    const { date, minuteOfDay } = fromAbsoluteMinutes(startAbs);
+    const dayStartAbs = startAbs - minuteOfDay;
+    const dayEndAbs = Math.min(endAbs, dayStartAbs + 1440);
+    segments.push({ date, start: minuteOfDay, end: minuteOfDay + (dayEndAbs - startAbs) });
+    startAbs = dayEndAbs;
+  }
+  return segments;
+}
 
 function pad(n: number): string {
   return n.toString().padStart(2, "0");
@@ -75,14 +126,44 @@ export default function BookRecordingPage() {
   const [website, setWebsite] = useState(""); // honeypot，一般訪客看不到
 
   useEffect(() => {
-    fetch(`/api/public/recording-availability?spaceId=${SPACE_ID}`)
+    const today = new Date();
+    const to = new Date(today);
+    to.setDate(to.getDate() + REAL_AVAILABILITY_QUERY_DAYS);
+
+    const testDbFetch = fetch(`/api/public/recording-availability?spaceId=${SPACE_ID}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => (data?.busy as Record<string, [number, number][]> | undefined) ?? {})
+      .catch(() => ({}) as Record<string, [number, number][]>);
+
+    const realSystemFetch = fetch(
+      `${REAL_AVAILABILITY_ENDPOINT}?from=${ymd(today)}&to=${ymd(to)}`,
+    )
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (!data?.busy) return;
-        setBusy(data.busy);
-        setBusyAsOf(data.asOf);
+        if (!data?.success || !Array.isArray(data.data)) {
+          return {} as Record<string, [number, number][]>;
+        }
+        const merged: Record<string, [number, number][]> = {};
+        for (const booking of data.data as RealBooking[]) {
+          for (const seg of expandRealBooking(booking)) {
+            (merged[seg.date] ??= []).push([seg.start, seg.end]);
+          }
+        }
+        return merged;
       })
-      .catch(() => {});
+      .catch(() => ({}) as Record<string, [number, number][]>);
+
+    Promise.all([testDbFetch, realSystemFetch]).then(([testDbBusy, realBusy]) => {
+      const combined: Record<string, [number, number][]> = {};
+      for (const [d, slots] of Object.entries(testDbBusy)) {
+        (combined[d] ??= []).push(...slots);
+      }
+      for (const [d, slots] of Object.entries(realBusy)) {
+        (combined[d] ??= []).push(...slots);
+      }
+      setBusy(combined);
+      setBusyAsOf(new Date().toISOString());
+    });
   }, []);
 
   const dayBusy = date ? busy[date] ?? [] : [];
