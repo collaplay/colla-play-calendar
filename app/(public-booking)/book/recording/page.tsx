@@ -114,6 +114,58 @@ function computeQuote(date: string, startTime: string, endTime: string): Quote {
   };
 }
 
+/** 一整條時段列：營業時間內忙碌區段顯示為紅色，游標移上去顯示確切時間 */
+function DayTimeline({ busy }: { busy: [number, number][] }) {
+  const rangeStart = OPEN_HOUR * 60;
+  const rangeEnd = CLOSE_HOUR * 60;
+  const totalMin = rangeEnd - rangeStart;
+  const pct = (m: number) => ((m - rangeStart) / totalMin) * 100;
+
+  const ticks: number[] = [];
+  for (let h = OPEN_HOUR; h <= CLOSE_HOUR; h += 3) ticks.push(h);
+
+  return (
+    <div className="mt-2">
+      <div className="relative h-10 rounded-lg border border-[#D8D3BF] bg-white">
+        {ticks.map((h) => (
+          <div
+            key={h}
+            className="absolute top-0 bottom-0 w-px bg-[#D8D3BF]"
+            style={{ left: `${pct(h * 60)}%` }}
+          />
+        ))}
+        {busy.map(([s, e], i) => {
+          const left = Math.max(0, pct(s));
+          const width = Math.min(100, pct(e)) - left;
+          if (width <= 0) return null;
+          return (
+            <div
+              key={i}
+              title={`${minToTime(s)}–${minToTime(e)}`}
+              className="absolute top-0 bottom-0 cursor-default border-x border-[#B65545] bg-[#F3DAD4]"
+              style={{ left: `${left}%`, width: `${width}%` }}
+            />
+          );
+        })}
+      </div>
+      <div className="relative mt-1 h-4 text-xs text-[#5B6961]">
+        {ticks.map((h) => (
+          <span
+            key={h}
+            className="absolute -translate-x-1/2 whitespace-nowrap"
+            style={{ left: `${pct(h * 60)}%` }}
+          >
+            {pad(h % 24)}:00
+          </span>
+        ))}
+      </div>
+      {busy.length === 0 ? (
+        <p className="mt-1 text-[#5B6961]">目前這天沒有已排定的時段。</p>
+      ) : null}
+    </div>
+  );
+}
+
 export default function BookRecordingPage() {
   const [busy, setBusy] = useState<Record<string, [number, number][]>>({});
   const [busyAsOf, setBusyAsOf] = useState<string | null>(null);
@@ -130,40 +182,20 @@ export default function BookRecordingPage() {
     const to = new Date(today);
     to.setDate(to.getDate() + REAL_AVAILABILITY_QUERY_DAYS);
 
-    const testDbFetch = fetch(`/api/public/recording-availability?spaceId=${SPACE_ID}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => (data?.busy as Record<string, [number, number][]> | undefined) ?? {})
-      .catch(() => ({}) as Record<string, [number, number][]>);
-
-    const realSystemFetch = fetch(
-      `${REAL_AVAILABILITY_ENDPOINT}?from=${ymd(today)}&to=${ymd(to)}`,
-    )
+    fetch(`${REAL_AVAILABILITY_ENDPOINT}?from=${ymd(today)}&to=${ymd(to)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (!data?.success || !Array.isArray(data.data)) {
-          return {} as Record<string, [number, number][]>;
-        }
+        if (!data?.success || !Array.isArray(data.data)) return;
         const merged: Record<string, [number, number][]> = {};
         for (const booking of data.data as RealBooking[]) {
           for (const seg of expandRealBooking(booking)) {
             (merged[seg.date] ??= []).push([seg.start, seg.end]);
           }
         }
-        return merged;
+        setBusy(merged);
+        setBusyAsOf(new Date().toISOString());
       })
-      .catch(() => ({}) as Record<string, [number, number][]>);
-
-    Promise.all([testDbFetch, realSystemFetch]).then(([testDbBusy, realBusy]) => {
-      const combined: Record<string, [number, number][]> = {};
-      for (const [d, slots] of Object.entries(testDbBusy)) {
-        (combined[d] ??= []).push(...slots);
-      }
-      for (const [d, slots] of Object.entries(realBusy)) {
-        (combined[d] ??= []).push(...slots);
-      }
-      setBusy(combined);
-      setBusyAsOf(new Date().toISOString());
-    });
+      .catch(() => {});
   }, []);
 
   const dayBusy = date ? busy[date] ?? [] : [];
@@ -266,17 +298,7 @@ export default function BookRecordingPage() {
           {date ? (
             <div className="mt-4 text-sm">
               <p className="font-semibold">已排定忙碌時段（{date}）</p>
-              {dayBusy.length === 0 ? (
-                <p className="mt-1 text-[#5B6961]">目前這天沒有已排定的時段。</p>
-              ) : (
-                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[#B65545]">
-                  {dayBusy.map(([s, e], i) => (
-                    <li key={i}>
-                      {minToTime(s)}–{minToTime(e)}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <DayTimeline busy={dayBusy} />
             </div>
           ) : null}
 
