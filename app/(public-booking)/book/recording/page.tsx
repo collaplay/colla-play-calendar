@@ -136,7 +136,7 @@ export default function BookRecordingPage() {
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <label className="flex flex-col gap-1 text-sm font-semibold">
-              日期
+              日期 <span className="text-[#B65545]">*</span>
               <input
                 type="date"
                 name="date"
@@ -147,7 +147,7 @@ export default function BookRecordingPage() {
               />
             </label>
             <label className="flex flex-col gap-1 text-sm font-semibold">
-              開始時間
+              開始時間 <span className="text-[#B65545]">*</span>
               <select
                 name="startTime"
                 value={startTime}
@@ -164,7 +164,7 @@ export default function BookRecordingPage() {
               </select>
             </label>
             <label className="flex flex-col gap-1 text-sm font-semibold">
-              結束時間
+              結束時間 <span className="text-[#B65545]">*</span>
               <select
                 name="endTime"
                 value={endTime}
@@ -291,8 +291,6 @@ export default function BookRecordingPage() {
         <div className="mt-8 border-t border-[#D8D3BF] pt-6 text-sm">
           <p className="mb-2 text-[#5B6961]">
             超時／未滿30分鐘一律以完整 30 分鐘計費。
-            <br />
-            其他場租需求請洽官方Line
           </p>
           <a
             href="https://line.me/R/ti/p/@collaplay.venue"
@@ -300,13 +298,12 @@ export default function BookRecordingPage() {
             rel="noopener noreferrer"
             className="font-semibold text-[#BB7F36] underline"
           >
-            大型需求請直接洽官方Line
+            其他場租需求請洽官方Line
           </a>
         </div>
 
         <footer className="mt-10 text-center text-xs text-[#5B6961]">
-          CollaPlay・台北市萬華區武昌街二段 83-6 號 — 本頁報價為系統試算，實際金額與檔期以官方
-          LINE 人工確認為準
+          CollaPlay・台北市萬華區武昌街二段 83-6 號 ｜ 電話:(02)-6627-0836
         </footer>
       </div>
     </main>
