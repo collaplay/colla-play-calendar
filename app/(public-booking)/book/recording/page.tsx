@@ -116,6 +116,7 @@ function computeQuote(date: string, startTime: string, endTime: string): Quote {
 
 /** 一整條時段列：營業時間內忙碌區段顯示為紅色，游標移上去顯示確切時間 */
 function DayTimeline({ busy }: { busy: [number, number][] }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const rangeStart = OPEN_HOUR * 60;
   const rangeEnd = CLOSE_HOUR * 60;
   const totalMin = rangeEnd - rangeStart;
@@ -139,11 +140,14 @@ function DayTimeline({ busy }: { busy: [number, number][] }) {
           const width = Math.min(100, pct(e)) - left;
           if (width <= 0) return null;
           return (
-            <div
+            <button
               key={i}
+              type="button"
               title={`${minToTime(s)}–${minToTime(e)}`}
-              className="absolute top-0 bottom-0 cursor-default border-x border-[#B65545] bg-[#F3DAD4]"
+              onClick={() => setActiveIndex((cur) => (cur === i ? null : i))}
+              className="absolute top-0 bottom-0 cursor-pointer border-x border-[#B65545] bg-[#F3DAD4]"
               style={{ left: `${left}%`, width: `${width}%` }}
+              aria-label={`忙碌時段 ${minToTime(s)} 到 ${minToTime(e)}`}
             />
           );
         })}
@@ -159,6 +163,11 @@ function DayTimeline({ busy }: { busy: [number, number][] }) {
           </span>
         ))}
       </div>
+      {activeIndex !== null && busy[activeIndex] ? (
+        <p className="mt-2 inline-block rounded-md bg-[#F3DAD4] px-2 py-1 text-sm font-semibold text-[#B65545]">
+          已選時段：{minToTime(busy[activeIndex][0])}–{minToTime(busy[activeIndex][1])}
+        </p>
+      ) : null}
       {busy.length === 0 ? (
         <p className="mt-1 text-[#5B6961]">目前這天沒有已排定的時段。</p>
       ) : null}
@@ -298,7 +307,7 @@ export default function BookRecordingPage() {
           {date ? (
             <div className="mt-4 text-sm">
               <p className="font-semibold">已排定忙碌時段（{date}）</p>
-              <DayTimeline busy={dayBusy} />
+              <DayTimeline key={date} busy={dayBusy} />
             </div>
           ) : null}
 
