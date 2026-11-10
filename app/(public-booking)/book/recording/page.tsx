@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 const SPACE_ID = "4f-podcast-studio";
-const OPEN_HOUR = 9;
+const OPEN_HOUR = 10;
 const CLOSE_HOUR = 22;
 
 function pad(n: number): string {
@@ -36,7 +36,7 @@ function genRef(dateStr: string): string {
 }
 
 const TIME_OPTIONS: string[] = [];
-for (let m = OPEN_HOUR * 60; m <= CLOSE_HOUR * 60; m += 30) {
+for (let m = OPEN_HOUR * 60; m <= CLOSE_HOUR * 60; m += 15) {
   TIME_OPTIONS.push(minToTime(m % 1440));
 }
 
