@@ -110,6 +110,11 @@ export default function BookingLookupPage() {
                 </li>
               ))}
             </ul>
+            <p className="mt-4 text-sm text-[#5B6961]">
+              如須取消預約，請聯絡Line官方帳號@Collaplay.venue
+              <br />
+              或於營業時間致電(02)-6627-0836
+            </p>
           </div>
         ) : null}
 
@@ -139,12 +144,6 @@ export default function BookingLookupPage() {
             其他場租需求請洽官方Line
           </a>
         </div>
-
-        <p className="mt-6 text-sm text-[#5B6961]">
-          如須取消預約，請聯絡Line官方帳號@Collaplay.venue
-          <br />
-          或於營業時間致電(02)-6627-0836
-        </p>
 
         <footer className="mt-10 text-center text-xs text-[#5B6961]">
           CollaPlay・台北市萬華區武昌街二段 83-6 號 ｜ 電話:(02)-6627-0836
