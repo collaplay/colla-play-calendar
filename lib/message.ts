@@ -19,6 +19,7 @@ export const NAV_LABELS = {
   home: "首頁",
   about: "關於我們",
   calendar: "活動行事曆",
+  recordingBooking: "預約錄音室",
 } as const;
 
 // Social Media Labels

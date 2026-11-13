@@ -6,6 +6,7 @@ import {
   Instagram,
   Facebook,
   Info,
+  Mic,
 } from "lucide-react";
 import {
   STORE_MESSAGES,
@@ -42,6 +43,7 @@ export const PAGE_LINKS = [
   { label: NAV_LABELS.home, href: "/", icon: Home },
   { label: NAV_LABELS.about, href: "/about", icon: Info },
   { label: NAV_LABELS.calendar, href: "/calendar", icon: Calendar },
+  { label: NAV_LABELS.recordingBooking, href: "/book/recording", icon: Mic },
 ];
 
 // ソーシャルリンク設定
