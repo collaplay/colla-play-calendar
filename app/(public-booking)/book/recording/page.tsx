@@ -335,9 +335,10 @@ export default function BookRecordingPage() {
   }
 
   const hasTime = !!startTime && !!endTime && timeToMin(endTime) > timeToMin(startTime);
-  const conflict =
-    hasTime &&
-    dayBusy.some(([s, e]) => timeToMin(startTime) < e && timeToMin(endTime) > s);
+  const overlappingBusy = hasTime
+    ? dayBusy.filter(([s, e]) => timeToMin(startTime) < e && timeToMin(endTime) > s)
+    : [];
+  const conflict = overlappingBusy.length > 0;
   const quote = computeQuote(date, startTime, endTime);
   const contactReady = !!name.trim() && !!phone.trim();
   const canSubmit =
@@ -422,7 +423,14 @@ export default function BookRecordingPage() {
                 />
                 {conflict ? (
                   <div className="mt-4 rounded-lg border border-[#B65545] bg-[#F3DAD4] p-3 text-sm text-[#B65545]">
-                    <b>時段衝突：</b>所選時間與目前已排定的檔期重疊，請重新選擇。
+                    今日
+                    {overlappingBusy.map(([s, e], i) => (
+                      <span key={i}>
+                        {i > 0 ? "、" : ""}
+                        {minToTime(s)}–{minToTime(e)}
+                      </span>
+                    ))}
+                    時段已被預約，請將起訖時間避開該時段再重新填寫。
                   </div>
                 ) : null}
                 {quote.blocked ? (
@@ -432,7 +440,21 @@ export default function BookRecordingPage() {
                   </div>
                 ) : null}
               </div>
-              <div className="sm:sticky sm:top-4 sm:self-start">
+              <div className="flex flex-col gap-3 sm:sticky sm:top-4 sm:self-start">
+                {dayBusy.length > 0 ? (
+                  <div className="rounded-lg border border-[#D8D3BF] bg-white p-3 text-sm text-[#B65545]">
+                    <b>今日已被預約時段：</b>
+                    <br />
+                    {[...dayBusy]
+                      .sort((a, b) => a[0] - b[0])
+                      .map(([s, e], i) => (
+                        <span key={i}>
+                          {i > 0 ? "、" : ""}
+                          {minToTime(s)}–{minToTime(e)}
+                        </span>
+                      ))}
+                  </div>
+                ) : null}
                 {quote.ready ? (
                   <div className="rounded-lg bg-[#DCEEE9] p-3 text-sm">
                     {quote.label}
@@ -441,11 +463,11 @@ export default function BookRecordingPage() {
                     <br />
                     <span className="text-[#5B6961]">無須訂金，場地僅保留 10 分鐘</span>
                   </div>
-                ) : (
+                ) : !conflict ? (
                   <div className="rounded-lg border border-dashed border-[#D8D3BF] p-3 text-sm text-[#5B6961]">
                     選好起訖時間後，報價會顯示在這裡。
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           ) : null}
