@@ -213,85 +213,70 @@ const TIME_PERIODS = [
   { key: "evening", label: "晚上", test: (h: number) => h >= 17 },
 ] as const;
 
-/** 可選的開始時間：至少要留 1 小時空檔才算可預約 */
-function availableStartTimes(busy: [number, number][]): string[] {
-  const sorted = [...busy].sort((a, b) => a[0] - b[0]);
+/** 可點選的時間點：只排除「嚴格落在忙碌區段內部」的時間，起訖判斷交給呼叫端 */
+function availableTimePoints(busy: [number, number][]): string[] {
   return TIME_OPTIONS.filter((t) => {
-    const start = timeToMin(t);
-    if (start + 60 > CLOSE_HOUR * 60) return false;
-    let limit = CLOSE_HOUR * 60;
-    for (const [s, e] of sorted) {
-      if (start >= s && start < e) return false;
-      if (s > start && s < limit) limit = s;
-    }
-    return limit - start >= 60;
+    const m = timeToMin(t);
+    return busy.every(([s, e]) => !(m > s && m < e));
   });
 }
 
-/** 可選的結束時間：至少租 1 小時，且不能跨過下一個忙碌時段 */
-function availableEndTimes(startTime: string, busy: [number, number][]): string[] {
-  const start = timeToMin(startTime);
-  let limit = CLOSE_HOUR * 60;
-  for (const [s] of busy) {
-    if (s > start && s < limit) limit = s;
-  }
-  return TIME_OPTIONS.filter((t) => {
-    const end = timeToMin(t);
-    return end - start >= 60 && end <= limit;
-  });
-}
-
-function TimeSlotPicker({
-  label,
+/** 起訖時間點選：先點一個時間，再點第二個，較早的自動當開始、較晚的自動當結束 */
+function TimeRangePicker({
   options,
-  value,
-  onChange,
+  start,
+  end,
+  onPick,
 }: {
-  label: string;
   options: string[];
-  value: string;
-  onChange: (t: string) => void;
+  start: string;
+  end: string;
+  onPick: (t: string) => void;
 }) {
   if (options.length === 0) {
-    return (
-      <div className="mt-4">
-        <p className="text-sm font-semibold">{label}</p>
-        <p className="mt-2 text-sm text-[#5B6961]">這天沒有可預約的時段了。</p>
-      </div>
-    );
+    return <p className="mt-2 text-sm text-[#5B6961]">這天沒有可預約的時段了。</p>;
   }
+  const startMin = start ? timeToMin(start) : null;
+  const endMin = end ? timeToMin(end) : null;
+  const inRange = (t: string) => {
+    if (startMin === null || endMin === null) return false;
+    const m = timeToMin(t);
+    return m >= startMin && m <= endMin;
+  };
   const groups = TIME_PERIODS.map((period) => ({
     ...period,
     times: options.filter((t) => period.test(timeToMin(t) / 60)),
   })).filter((g) => g.times.length > 0);
 
   return (
-    <div className="mt-4">
-      <p className="text-sm font-semibold">{label}</p>
-      <div className="mt-2 grid grid-cols-3 gap-3">
-        {groups.map((g) => (
-          <div key={g.key}>
-            <p className="text-xs text-[#5B6961]">{g.label}</p>
-            <div className="mt-1 flex flex-col gap-1.5">
-              {g.times.map((t) => (
+    <div className="mt-2 grid grid-cols-3 gap-3">
+      {groups.map((g) => (
+        <div key={g.key}>
+          <p className="text-xs text-[#5B6961]">{g.label}</p>
+          <div className="mt-1 flex flex-col gap-1.5">
+            {g.times.map((t) => {
+              const isEndpoint = t === start || t === end;
+              return (
                 <button
                   key={t}
                   type="button"
-                  onClick={() => onChange(t)}
+                  onClick={() => onPick(t)}
                   className={[
                     "rounded-md border px-2 py-1.5 text-sm",
-                    value === t
+                    isEndpoint
                       ? "border-[#EA9F44] bg-[#EA9F44] font-semibold text-white"
-                      : "border-[#D8D3BF] bg-white text-[#23302B] hover:border-[#EA9F44]",
+                      : inRange(t)
+                        ? "border-[#EA9F44] bg-[#FBE8CE] text-[#23302B]"
+                        : "border-[#D8D3BF] bg-white text-[#23302B] hover:border-[#EA9F44]",
                   ].join(" ")}
                 >
                   {t}
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -330,11 +315,25 @@ export default function BookRecordingPage() {
   }, []);
 
   const dayBusy = useMemo(() => (date ? busy[date] ?? [] : []), [date, busy]);
-  const startOptions = useMemo(() => availableStartTimes(dayBusy), [dayBusy]);
-  const endOptions = useMemo(
-    () => (startTime ? availableEndTimes(startTime, dayBusy) : []),
-    [startTime, dayBusy],
-  );
+  const timePointOptions = useMemo(() => availableTimePoints(dayBusy), [dayBusy]);
+
+  function handlePickTime(t: string) {
+    if (!startTime || (startTime && endTime)) {
+      // 還沒選、或已經選好一組完整區間了：這次點擊當作新的起點
+      setStartTime(t);
+      setEndTime("");
+      return;
+    }
+    if (t === startTime) {
+      setStartTime("");
+      return;
+    }
+    const a = timeToMin(startTime);
+    const b = timeToMin(t);
+    setStartTime(a < b ? startTime : t);
+    setEndTime(a < b ? t : startTime);
+  }
+
   const hasTime = !!startTime && !!endTime && timeToMin(endTime) > timeToMin(startTime);
   const conflict =
     hasTime &&
@@ -410,42 +409,44 @@ export default function BookRecordingPage() {
           <input type="hidden" name="endTime" value={endTime} />
 
           {date ? (
-            <TimeSlotPicker
-              label="開始時間"
-              options={startOptions}
-              value={startTime}
-              onChange={(t) => {
-                setStartTime(t);
-                setEndTime("");
-              }}
-            />
-          ) : null}
-
-          {date && startTime ? (
-            <TimeSlotPicker
-              label="結束時間"
-              options={endOptions}
-              value={endTime}
-              onChange={setEndTime}
-            />
-          ) : null}
-
-          {conflict ? (
-            <div className="mt-4 rounded-lg border border-[#B65545] bg-[#F3DAD4] p-3 text-sm text-[#B65545]">
-              <b>時段衝突：</b>所選時間與目前已排定的檔期重疊，請調整起訖時間。
-            </div>
-          ) : null}
-          {quote.blocked ? (
-            <div className="mt-4 rounded-lg border border-[#B65545] bg-[#F3DAD4] p-3 text-sm text-[#B65545]">
-              <b>無法預約：</b>
-              {quote.reason}
-            </div>
-          ) : null}
-          {quote.ready ? (
-            <div className="mt-4 rounded-lg bg-[#DCEEE9] p-3 text-sm">
-              {quote.label}　<b>{fmtMoney(quote.total)}</b>
-              <br />
-              <span className="text-[#5B6961]">無須訂金，場地僅保留 10 分鐘</span>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[1fr_240px]">
+              <div>
+                <p className="text-sm font-semibold">
+                  選擇起訖時間（點兩個時間點，較早的是開始、較晚的是結束）
+                </p>
+                <TimeRangePicker
+                  options={timePointOptions}
+                  start={startTime}
+                  end={endTime}
+                  onPick={handlePickTime}
+                />
+                {conflict ? (
+                  <div className="mt-4 rounded-lg border border-[#B65545] bg-[#F3DAD4] p-3 text-sm text-[#B65545]">
+                    <b>時段衝突：</b>所選時間與目前已排定的檔期重疊，請重新選擇。
+                  </div>
+                ) : null}
+                {quote.blocked ? (
+                  <div className="mt-4 rounded-lg border border-[#B65545] bg-[#F3DAD4] p-3 text-sm text-[#B65545]">
+                    <b>無法預約：</b>
+                    {quote.reason}
+                  </div>
+                ) : null}
+              </div>
+              <div className="sm:sticky sm:top-4 sm:self-start">
+                {quote.ready ? (
+                  <div className="rounded-lg bg-[#DCEEE9] p-3 text-sm">
+                    {quote.label}
+                    <br />
+                    <b className="text-base">{fmtMoney(quote.total)}</b>
+                    <br />
+                    <span className="text-[#5B6961]">無須訂金，場地僅保留 10 分鐘</span>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-[#D8D3BF] p-3 text-sm text-[#5B6961]">
+                    選好起訖時間後，報價會顯示在這裡。
+                  </div>
+                )}
+              </div>
             </div>
           ) : null}
 
