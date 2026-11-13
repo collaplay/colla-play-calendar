@@ -204,11 +204,16 @@ export async function POST(request: NextRequest) {
     customerName,
     customerPhone,
     eventOrVenueUse,
-    eventType,
+    // 免審核場域（錄音室／播映室）為系統自動建立，沒有人工填寫，活動類型與人數/桌椅
+    // 一律填入後台慣用的預設值，避免後台編輯時卡在必填欄位。
+    eventType: isSelfServeSpace ? "場租" : eventType,
+    totalAttendees: isSelfServeSpace ? "0" : undefined,
+    tables: isSelfServeSpace ? "0" : undefined,
+    chairs: isSelfServeSpace ? "0" : undefined,
     collaPlayContactId,
     projectNotes: noteLines.join("\n"),
     internalNotes: internalNoteLines.length ? internalNoteLines.join("\n") : undefined,
-    needsPrintedNotice: true,
+    needsPrintedNotice: !isSelfServeSpace,
     referenceNumber,
     status: isSelfServeSpace ? "confirmed" : undefined,
     rentals: [
