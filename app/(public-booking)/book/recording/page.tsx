@@ -6,6 +6,7 @@
 // /api/public/recording-availability 同源溝通，不會再遇到「被封鎖」的問題。
 
 import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 
 const SPACE_ID = "4f-podcast-studio";
 const OPEN_HOUR = 10;
@@ -228,24 +229,29 @@ export default function BookRecordingPage() {
         </p>
         <h1 className="mt-2 font-serif text-3xl font-medium">確認時間，預約錄音——</h1>
 
-        <div className="mt-6 rounded-xl border border-dashed border-[#D8D3BF] bg-[#F8F7EF] p-4 text-sm text-[#5B6961]">
-          <b className="text-[#23302B]">注意事項：</b>
-          本系統僅供錄音室租借，如須其他場租需求，請洽官方Line
+        <div className="mt-6 rounded-xl border border-dashed border-[#D8D3BF] bg-[#F8F7EF] p-5 text-sm text-[#5B6961]">
+          <p>
+            本系統僅供錄音室租借，其他場租需求請洽官方Line @Collaplay.venue
+          </p>
+          <p className="mt-2">
+            <a
+              className="text-[#BB7F36] underline"
+              href="https://collaplay.com/rental/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              詳細場地資訊、圖片請參考 collaplay.com/rental
+            </a>
+          </p>
         </div>
 
         <p className="mt-3 text-sm">
           <a
-            className="text-[#BB7F36] underline"
-            href="https://collaplay.com/rental/"
-            target="_blank"
-            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-[#BB7F36] underline"
+            href="/book/recording/lookup"
           >
-            詳細場地資訊、圖片請參考 collaplay.com/rental
-          </a>
-        </p>
-        <p className="mt-1 text-sm">
-          <a className="text-[#BB7F36] underline" href="/book/recording/lookup">
-            查詢我的預約記錄
+            <Search className="size-4" />
+            查詢我未來的預約紀錄
           </a>
         </p>
 
