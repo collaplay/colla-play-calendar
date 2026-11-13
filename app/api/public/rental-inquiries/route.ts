@@ -24,6 +24,12 @@ const REFERENCE_NUMBER_PATTERN = /^CP-\d{8}-\d{4}$/;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_MAX_PER_IP = 5;
 
+// 錄音室專用：liuchiawei 提供的正式系統寫回 API，只有錄音室單一場域的預約會呼叫這支，
+// 寫入成功才視為「真的佔住時段」，接著才在我們自己的資料庫留一份供客人查詢／取消用。
+const RECORDING_ROOM_SPACE_ID = "4f-podcast-studio";
+const RECORDING_ROOM_BOOKING_ENDPOINT =
+  "https://colla-play-calendar.vercel.app/api/public/recording-bookings";
+
 type ThanksParams = {
   status: "ok" | "error";
   ref?: string;
@@ -127,6 +133,43 @@ export async function POST(request: NextRequest) {
     return redirectToThanks(request, { status: "error", reason: "rate_limited" });
   }
   await prisma.webInquiryAttempt.create({ data: { ip } });
+
+  // 錄音室：先呼叫正式系統的寫回 API，真正佔住時段；失敗或衝突就整筆擋下，
+  // 不在我們自己的資料庫留下紀錄（避免跟正式系統對不上）。
+  const isRecordingRoomBooking = spaceIds.length === 1 && spaceIds[0] === RECORDING_ROOM_SPACE_ID;
+  if (isRecordingRoomBooking) {
+    const apiKey = process.env.RECORDING_BOOKING_API_KEY;
+    if (!apiKey) {
+      console.error("[rental-inquiries] missing RECORDING_BOOKING_API_KEY env var");
+      return redirectToThanks(request, { status: "error", reason: "server_error" });
+    }
+    let realRes: Response;
+    try {
+      realRes = await fetch(RECORDING_ROOM_BOOKING_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+        body: JSON.stringify({
+          customerName,
+          customerPhone,
+          date,
+          startTime,
+          endTime,
+          notes: customerNote || undefined,
+        }),
+      });
+    } catch (error) {
+      console.error("[rental-inquiries] recording-bookings network error:", error);
+      return redirectToThanks(request, { status: "error", reason: "server_error" });
+    }
+    if (realRes.status === 409) {
+      return redirectToThanks(request, { status: "error", reason: "conflict" });
+    }
+    if (!realRes.ok) {
+      const bodyText = await realRes.text().catch(() => "");
+      console.error("[rental-inquiries] recording-bookings rejected:", realRes.status, bodyText);
+      return redirectToThanks(request, { status: "error", reason: "server_error" });
+    }
+  }
 
   // 尚未有指派窗口的機制，先掛在第一位管理員名下，待人工重新指派
   const contacts = await getAdminContactOptions();
