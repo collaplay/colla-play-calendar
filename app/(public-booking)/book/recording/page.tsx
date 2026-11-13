@@ -6,7 +6,20 @@
 // /api/public/recording-availability 同源溝通，不會再遇到「被封鎖」的問題。
 
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  addMonths,
+  subMonths,
+  isSameDay,
+  isSameMonth,
+  isBefore,
+  startOfDay,
+} from "date-fns";
 
 const SPACE_ID = "4f-podcast-studio";
 const OPEN_HOUR = 10;
@@ -115,66 +128,170 @@ function computeQuote(date: string, startTime: string, endTime: string): Quote {
   };
 }
 
-/** 一整條時段列：營業時間內忙碌區段顯示為紅色，下方文字一律列出確切時間（不用點選） */
-function DayTimeline({ busy }: { busy: [number, number][] }) {
-  const rangeStart = OPEN_HOUR * 60;
-  const rangeEnd = CLOSE_HOUR * 60;
-  const totalMin = rangeEnd - rangeStart;
-  const pct = (m: number) => ((m - rangeStart) / totalMin) * 100;
+const WEEKDAY_LABELS = ["週一", "週二", "週三", "週四", "週五", "週六", "週日"];
+const MONTH_LABELS = [
+  "一月", "二月", "三月", "四月", "五月", "六月",
+  "七月", "八月", "九月", "十月", "十一月", "十二月",
+];
 
-  const ticks: number[] = [];
-  for (let h = OPEN_HOUR; h <= CLOSE_HOUR; h += 3) ticks.push(h);
+/** 月曆選日期：過去日期與非當月日期一律不可選 */
+function MonthCalendar({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (date: string) => void;
+}) {
+  const todayStart = startOfDay(new Date());
+  const [viewMonth, setViewMonth] = useState(() =>
+    startOfMonth(value ? new Date(`${value}T00:00:00`) : todayStart),
+  );
 
-  const sortedBusy = [...busy].sort((a, b) => a[0] - b[0]);
+  const gridStart = startOfWeek(startOfMonth(viewMonth), { weekStartsOn: 1 });
+  const gridEnd = endOfWeek(endOfMonth(viewMonth), { weekStartsOn: 1 });
+  const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
 
   return (
-    <div className="mt-2">
-      <div className="relative h-10 rounded-lg border border-[#D8D3BF] bg-white">
-        {ticks.map((h) => (
-          <div
-            key={h}
-            className="absolute top-0 bottom-0 w-px bg-[#D8D3BF]"
-            style={{ left: `${pct(h * 60)}%` }}
-          />
+    <div>
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setViewMonth((m) => subMonths(m, 1))}
+          aria-label="上個月"
+          className="rounded-full p-1.5 hover:bg-[#EEEDE2]"
+        >
+          <ChevronLeft className="size-4" />
+        </button>
+        <p className="font-serif text-base font-medium">
+          {MONTH_LABELS[viewMonth.getMonth()]} {viewMonth.getFullYear()}
+        </p>
+        <button
+          type="button"
+          onClick={() => setViewMonth((m) => addMonths(m, 1))}
+          aria-label="下個月"
+          className="rounded-full p-1.5 hover:bg-[#EEEDE2]"
+        >
+          <ChevronRight className="size-4" />
+        </button>
+      </div>
+      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-[#5B6961]">
+        {WEEKDAY_LABELS.map((w) => (
+          <div key={w}>{w}</div>
         ))}
-        {sortedBusy.map(([s, e], i) => {
-          const left = Math.max(0, pct(s));
-          const width = Math.min(100, pct(e)) - left;
-          if (width <= 0) return null;
+        {days.map((d) => {
+          const dateStr = ymd(d);
+          const inMonth = isSameMonth(d, viewMonth);
+          const past = isBefore(d, todayStart);
+          const disabled = !inMonth || past;
+          const selected = value === dateStr;
+          const today = isSameDay(d, todayStart);
           return (
-            <div
-              key={i}
-              title={`${minToTime(s)}–${minToTime(e)}`}
-              className="absolute top-0 bottom-0 border-x border-[#B65545] bg-[#F3DAD4]"
-              style={{ left: `${left}%`, width: `${width}%` }}
-            />
+            <button
+              key={dateStr}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(dateStr)}
+              className={[
+                "rounded-lg py-2 text-sm",
+                disabled ? "text-[#D8D3BF]" : "text-[#23302B] hover:bg-[#EEEDE2]",
+                selected ? "bg-[#EA9F44] font-semibold text-white hover:bg-[#EA9F44]" : "",
+                today && !selected ? "font-semibold text-[#BB7F36]" : "",
+              ].join(" ")}
+            >
+              {d.getDate()}
+            </button>
           );
         })}
       </div>
-      <div className="relative mt-1 h-4 text-xs text-[#5B6961]">
-        {ticks.map((h) => (
-          <span
-            key={h}
-            className="absolute -translate-x-1/2 whitespace-nowrap"
-            style={{ left: `${pct(h * 60)}%` }}
-          >
-            {pad(h % 24)}:00
-          </span>
+    </div>
+  );
+}
+
+const TIME_PERIODS = [
+  { key: "morning", label: "早上", test: (h: number) => h < 12 },
+  { key: "afternoon", label: "下午", test: (h: number) => h >= 12 && h < 17 },
+  { key: "evening", label: "晚上", test: (h: number) => h >= 17 },
+] as const;
+
+/** 可選的開始時間：至少要留 1 小時空檔才算可預約 */
+function availableStartTimes(busy: [number, number][]): string[] {
+  const sorted = [...busy].sort((a, b) => a[0] - b[0]);
+  return TIME_OPTIONS.filter((t) => {
+    const start = timeToMin(t);
+    if (start + 60 > CLOSE_HOUR * 60) return false;
+    let limit = CLOSE_HOUR * 60;
+    for (const [s, e] of sorted) {
+      if (start >= s && start < e) return false;
+      if (s > start && s < limit) limit = s;
+    }
+    return limit - start >= 60;
+  });
+}
+
+/** 可選的結束時間：至少租 1 小時，且不能跨過下一個忙碌時段 */
+function availableEndTimes(startTime: string, busy: [number, number][]): string[] {
+  const start = timeToMin(startTime);
+  let limit = CLOSE_HOUR * 60;
+  for (const [s] of busy) {
+    if (s > start && s < limit) limit = s;
+  }
+  return TIME_OPTIONS.filter((t) => {
+    const end = timeToMin(t);
+    return end - start >= 60 && end <= limit;
+  });
+}
+
+function TimeSlotPicker({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  value: string;
+  onChange: (t: string) => void;
+}) {
+  if (options.length === 0) {
+    return (
+      <div className="mt-4">
+        <p className="text-sm font-semibold">{label}</p>
+        <p className="mt-2 text-sm text-[#5B6961]">這天沒有可預約的時段了。</p>
+      </div>
+    );
+  }
+  const groups = TIME_PERIODS.map((period) => ({
+    ...period,
+    times: options.filter((t) => period.test(timeToMin(t) / 60)),
+  })).filter((g) => g.times.length > 0);
+
+  return (
+    <div className="mt-4">
+      <p className="text-sm font-semibold">{label}</p>
+      <div className="mt-2 grid grid-cols-3 gap-3">
+        {groups.map((g) => (
+          <div key={g.key}>
+            <p className="text-xs text-[#5B6961]">{g.label}</p>
+            <div className="mt-1 flex flex-col gap-1.5">
+              {g.times.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => onChange(t)}
+                  className={[
+                    "rounded-md border px-2 py-1.5 text-sm",
+                    value === t
+                      ? "border-[#EA9F44] bg-[#EA9F44] font-semibold text-white"
+                      : "border-[#D8D3BF] bg-white text-[#23302B] hover:border-[#EA9F44]",
+                  ].join(" ")}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
-      {sortedBusy.length > 0 ? (
-        <p className="mt-2 text-sm text-[#B65545]">
-          無法預約時段：
-          {sortedBusy.map(([s, e], i) => (
-            <span key={i}>
-              {i > 0 ? "、" : ""}
-              {minToTime(s)}–{minToTime(e)}
-            </span>
-          ))}
-        </p>
-      ) : (
-        <p className="mt-1 text-[#5B6961]">目前這天沒有已排定的時段。</p>
-      )}
     </div>
   );
 }
@@ -212,7 +329,12 @@ export default function BookRecordingPage() {
       .catch(() => {});
   }, []);
 
-  const dayBusy = date ? busy[date] ?? [] : [];
+  const dayBusy = useMemo(() => (date ? busy[date] ?? [] : []), [date, busy]);
+  const startOptions = useMemo(() => availableStartTimes(dayBusy), [dayBusy]);
+  const endOptions = useMemo(
+    () => (startTime ? availableEndTimes(startTime, dayBusy) : []),
+    [startTime, dayBusy],
+  );
   const hasTime = !!startTime && !!endTime && timeToMin(endTime) > timeToMin(startTime);
   const conflict =
     hasTime &&
@@ -272,59 +394,40 @@ export default function BookRecordingPage() {
             ，再選起訖時間。
           </p>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <label className="flex flex-col gap-1 text-sm font-semibold">
-              日期 <span className="text-[#B65545]">*</span>
-              <input
-                type="date"
-                name="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="rounded-md border border-[#D8D3BF] bg-white px-3 py-2 text-sm font-normal"
-                required
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm font-semibold">
-              開始時間 <span className="text-[#B65545]">*</span>
-              <select
-                name="startTime"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="rounded-md border border-[#D8D3BF] bg-white px-3 py-2 text-sm font-normal"
-                required
-              >
-                <option value="">請選擇</option>
-                {TIME_OPTIONS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm font-semibold">
-              結束時間 <span className="text-[#B65545]">*</span>
-              <select
-                name="endTime"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="rounded-md border border-[#D8D3BF] bg-white px-3 py-2 text-sm font-normal"
-                required
-              >
-                <option value="">請選擇</option>
-                {TIME_OPTIONS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="mt-4 rounded-xl border border-[#D8D3BF] bg-white p-4">
+            <MonthCalendar
+              value={date}
+              onChange={(d) => {
+                setDate(d);
+                setStartTime("");
+                setEndTime("");
+              }}
+            />
           </div>
+          {/* 隱藏欄位：表單仍以 date/startTime/endTime 送出（下方按鈕的 disabled 狀態已擋掉未填完的情況） */}
+          <input type="hidden" name="date" value={date} />
+          <input type="hidden" name="startTime" value={startTime} />
+          <input type="hidden" name="endTime" value={endTime} />
 
           {date ? (
-            <div className="mt-4 text-sm">
-              <p className="font-semibold">已排定忙碌時段（{date}）</p>
-              <DayTimeline key={date} busy={dayBusy} />
-            </div>
+            <TimeSlotPicker
+              label="開始時間"
+              options={startOptions}
+              value={startTime}
+              onChange={(t) => {
+                setStartTime(t);
+                setEndTime("");
+              }}
+            />
+          ) : null}
+
+          {date && startTime ? (
+            <TimeSlotPicker
+              label="結束時間"
+              options={endOptions}
+              value={endTime}
+              onChange={setEndTime}
+            />
           ) : null}
 
           {conflict ? (
