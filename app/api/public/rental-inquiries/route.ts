@@ -22,7 +22,7 @@ import type { CreateProjectInput } from "@/lib/types/project";
 
 const REFERENCE_NUMBER_PATTERN = /^CP-\d{8}-\d{4}$/;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
-const RATE_LIMIT_MAX_PER_IP = 5;
+const RATE_LIMIT_MAX_PER_IP = 50;
 
 // 錄音室專用：liuchiawei 提供的正式系統寫回 API，只有錄音室單一場域的預約會呼叫這支，
 // 寫入成功才視為「真的佔住時段」，接著才在我們自己的資料庫留一份供客人查詢／取消用。
