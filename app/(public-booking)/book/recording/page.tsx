@@ -115,9 +115,8 @@ function computeQuote(date: string, startTime: string, endTime: string): Quote {
   };
 }
 
-/** 一整條時段列：營業時間內忙碌區段顯示為紅色，游標移上去顯示確切時間 */
+/** 一整條時段列：營業時間內忙碌區段顯示為紅色，下方文字一律列出確切時間（不用點選） */
 function DayTimeline({ busy }: { busy: [number, number][] }) {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const rangeStart = OPEN_HOUR * 60;
   const rangeEnd = CLOSE_HOUR * 60;
   const totalMin = rangeEnd - rangeStart;
@@ -125,6 +124,8 @@ function DayTimeline({ busy }: { busy: [number, number][] }) {
 
   const ticks: number[] = [];
   for (let h = OPEN_HOUR; h <= CLOSE_HOUR; h += 3) ticks.push(h);
+
+  const sortedBusy = [...busy].sort((a, b) => a[0] - b[0]);
 
   return (
     <div className="mt-2">
@@ -136,19 +137,16 @@ function DayTimeline({ busy }: { busy: [number, number][] }) {
             style={{ left: `${pct(h * 60)}%` }}
           />
         ))}
-        {busy.map(([s, e], i) => {
+        {sortedBusy.map(([s, e], i) => {
           const left = Math.max(0, pct(s));
           const width = Math.min(100, pct(e)) - left;
           if (width <= 0) return null;
           return (
-            <button
+            <div
               key={i}
-              type="button"
               title={`${minToTime(s)}–${minToTime(e)}`}
-              onClick={() => setActiveIndex((cur) => (cur === i ? null : i))}
-              className="absolute top-0 bottom-0 cursor-pointer border-x border-[#B65545] bg-[#F3DAD4]"
+              className="absolute top-0 bottom-0 border-x border-[#B65545] bg-[#F3DAD4]"
               style={{ left: `${left}%`, width: `${width}%` }}
-              aria-label={`忙碌時段 ${minToTime(s)} 到 ${minToTime(e)}`}
             />
           );
         })}
@@ -164,14 +162,19 @@ function DayTimeline({ busy }: { busy: [number, number][] }) {
           </span>
         ))}
       </div>
-      {activeIndex !== null && busy[activeIndex] ? (
-        <p className="mt-2 inline-block rounded-md bg-[#F3DAD4] px-2 py-1 text-sm font-semibold text-[#B65545]">
-          已選時段：{minToTime(busy[activeIndex][0])}–{minToTime(busy[activeIndex][1])}
+      {sortedBusy.length > 0 ? (
+        <p className="mt-2 text-sm text-[#B65545]">
+          無法預約時段：
+          {sortedBusy.map(([s, e], i) => (
+            <span key={i}>
+              {i > 0 ? "、" : ""}
+              {minToTime(s)}–{minToTime(e)}
+            </span>
+          ))}
         </p>
-      ) : null}
-      {busy.length === 0 ? (
+      ) : (
         <p className="mt-1 text-[#5B6961]">目前這天沒有已排定的時段。</p>
-      ) : null}
+      )}
     </div>
   );
 }

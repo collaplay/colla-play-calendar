@@ -91,7 +91,15 @@ export default async function RentalInquiryThanksPage({ searchParams }: PageProp
             </a>
           </>
         )}
-        <div className="mt-6 text-sm">
+        <div className="mt-6 flex flex-col items-center gap-2 text-sm">
+          {ok ? (
+            <Link
+              href="/book/recording"
+              className="text-muted-foreground underline underline-offset-4"
+            >
+              返回預約畫面
+            </Link>
+          ) : null}
           <Link href="/" className="text-muted-foreground underline underline-offset-4">
             回到首頁
           </Link>
