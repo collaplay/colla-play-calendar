@@ -143,6 +143,26 @@ export async function POST(request: NextRequest) {
       console.error("[rental-inquiries] missing RECORDING_BOOKING_API_KEY env var");
       return redirectToThanks(request, { status: "error", reason: "server_error" });
     }
+
+    // 防止連點兩下／網路重送造成重複寫入正式系統：同一支電話、同一個時段，
+    // 5 分鐘內已經成功建立過的話，直接視為同一筆，不再呼叫一次正式系統。
+    const dedupeWindowStart = new Date(Date.now() - 5 * 60 * 1000);
+    const duplicate = await prisma.project.findFirst({
+      where: {
+        customerPhone,
+        status: { not: "cancelled" },
+        createdAt: { gte: dedupeWindowStart },
+        rentals: { some: { spaceIds: { has: RECORDING_ROOM_SPACE_ID }, date, startTime, endTime } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (duplicate) {
+      return redirectToThanks(request, {
+        status: "ok",
+        ref: duplicate.referenceNumber ?? referenceNumber,
+      });
+    }
+
     let realRes: Response;
     try {
       realRes = await fetch(RECORDING_ROOM_BOOKING_ENDPOINT, {

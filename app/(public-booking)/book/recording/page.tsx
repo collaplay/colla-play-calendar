@@ -186,6 +186,7 @@ export default function BookRecordingPage() {
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
   const [website, setWebsite] = useState(""); // honeypot，一般訪客看不到
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const today = new Date();
@@ -258,6 +259,7 @@ export default function BookRecordingPage() {
         <form
           method="POST"
           action="/api/public/rental-inquiries"
+          onSubmit={() => setSubmitting(true)}
           className="mt-6 rounded-2xl border border-[#D8D3BF] bg-[#F8F7EF] p-6 shadow-sm"
         >
           <h2 className="font-serif text-xl font-medium">選擇場地與時段</h2>
@@ -403,10 +405,10 @@ export default function BookRecordingPage() {
           <div className="mt-6 flex justify-end">
             <button
               type="submit"
-              disabled={!canSubmit}
+              disabled={!canSubmit || submitting}
               className="rounded-lg bg-[#EA9F44] px-6 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#D8D3BF] disabled:text-[#5B6961]"
             >
-              送出預約
+              {submitting ? "送出中…" : "送出預約"}
             </button>
           </div>
         </form>
