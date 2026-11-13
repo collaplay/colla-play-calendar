@@ -243,6 +243,11 @@ export default function BookRecordingPage() {
             詳細場地資訊、圖片請參考 collaplay.com/rental
           </a>
         </p>
+        <p className="mt-1 text-sm">
+          <a className="text-[#BB7F36] underline" href="/book/recording/lookup">
+            查詢我的預約記錄
+          </a>
+        </p>
 
         <form
           method="POST"
