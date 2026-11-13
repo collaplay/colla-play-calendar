@@ -88,7 +88,7 @@ function genRef(dateStr: string): string {
 }
 
 const TIME_OPTIONS: string[] = [];
-for (let m = OPEN_HOUR * 60; m <= CLOSE_HOUR * 60; m += 15) {
+for (let m = OPEN_HOUR * 60; m <= CLOSE_HOUR * 60; m += 30) {
   TIME_OPTIONS.push(minToTime(m % 1440));
 }
 
